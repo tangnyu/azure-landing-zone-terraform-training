@@ -1,0 +1,227 @@
+
+#local variable values
+locals {
+  resource_group = "landingzone_mentorship_tf_states"
+  resource_region = "eastus"
+}
+
+provider "azurerm" {
+  features {
+    # subscription_id = var.core_subscription_id
+  }
+}
+
+# define main resource group
+resource "azurerm_resource_group" "rg" {
+  name     = local.resource_group
+  location = local.resource_region
+}
+
+resource "azurerm_storage_account" "landingzone-mentorship-tf-storage-acct" {
+  name                     = "landingzonementorshiptfstorageacct"
+  resource_group_name      = local.resource_group
+  location                 = local.resource_region
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  depends_on = [
+      azurerm_resource_group.rg
+    ]
+}
+
+resource "azurerm_storage_container" "landingzone-mentorship-tf-blob" {
+  name                  = "landingzonementorshiptfblob"
+  storage_account_name  = azurerm_storage_account.landingzone-mentorship-tf-storage-acct.name
+  container_access_type = "private"
+  depends_on = [
+        azurerm_storage_account.landingzone-mentorship-tf-storage-acct
+      ]
+}
+
+
+# define main resource group
+resource "azurerm_resource_group" "rg" {
+  name     = local.resource_group
+  location = local.resource_region
+}
+
+# define vnet within the resource group
+resource "azurerm_virtual_network" "landingzonevnet" {
+  name = "landingzone-vnet"
+  location = local.resource_region
+  resource_group_name = local.resource_group
+  address_space = local.ip_cidr
+}
+
+# define subnet within the vnet
+resource "azurerm_subnet" "privatesubnet" {
+  name = "private-subnet"
+  resource_group_name = local.resource_group
+  address_prefixes = local.private_subnet_cidr
+  virtual_network_name = azurerm_virtual_network.landingzonevnet.name
+}
+
+#define landingzone resources
+### Azure Open AI Account
+resource "azurerm_cognitive_account" "landingzone" {
+  name                          = "landingzone_mentorship_${local.mentorship_env}"
+  location                      = local.resource_region
+  resource_group_name           = local.resource_group
+  kind                          = "landingzone"
+  custom_subdomain_name         = "mentorship${local.mentorship_env}1"
+  sku_name                      = "S0"
+  # enable public access, this is required for the ACLS rules to apply, change to false if using private endpoints
+  public_network_access_enabled = true
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    Owner = "mentorship"
+  }
+  network_acls {
+      default_action = "Deny"
+      ip_rules       = local.allowed_ip_ranges
+    }
+}
+
+resource "azurerm_cognitive_account" "landingzone2" {
+  name                          = "landingzone_mentorship_${local.mentorship_env}2"
+  location                      = local.resource_region
+  resource_group_name           = local.resource_group
+  kind                          = "landingzone"
+  custom_subdomain_name         = "mentorship${local.mentorship_env}2"
+  sku_name                      = "S0"
+  public_network_access_enabled = true
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    Owner = "mentorship"
+  }
+  network_acls {
+        default_action = "Deny"
+        ip_rules       = local.allowed_ip_ranges
+      }
+}
+
+resource "azurerm_cognitive_account" "landingzone3" {
+  name                          = "landingzone_mentorship_${local.mentorship_env}3"
+  location                      = local.resource_region
+  resource_group_name           = local.resource_group
+  kind                          = "landingzone"
+  custom_subdomain_name         = "mentorship${local.mentorship_env}3"
+  sku_name                      = "S0"
+  public_network_access_enabled = true
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    Owner = "mentorship"
+  }
+  network_acls {
+        default_action = "Deny"
+        ip_rules       = local.allowed_ip_ranges
+      }
+}
+
+resource "azurerm_cognitive_account" "landingzone4" {
+  name                          = "landingzone_mentorship_${local.mentorship_env}4"
+  location                      = local.resource_region
+  resource_group_name           = local.resource_group
+  kind                          = "landingzone"
+  custom_subdomain_name         = "mentorship${local.mentorship_env}4"
+  sku_name                      = "S0"
+  public_network_access_enabled = true
+  identity {
+    type = "SystemAssigned"
+  }
+  tags = {
+    Owner = "mentorship"
+  }
+  network_acls {
+        default_action = "Deny"
+        ip_rules       = local.allowed_ip_ranges
+      }
+}
+
+#private endpoint configuration
+resource "azurerm_private_endpoint" "landingzoneendpoint1" {
+  name                = "landingzone-mentorship-pe"
+  location            = local.resource_region
+  resource_group_name = local.resource_group
+  subnet_id           = azurerm_subnet.privatesubnet.id
+
+  private_service_connection {
+    name                           = "privateendpoint-1"
+    private_connection_resource_id = azurerm_cognitive_account.landingzone.id
+    is_manual_connection           = false
+    subresource_names              = ["account"]
+  }
+}
+
+resource "azurerm_private_endpoint" "landingzoneendpoint2" {
+  name                = "landingzone-mentorship-pe2"
+  location            = local.resource_region
+  resource_group_name = local.resource_group
+  subnet_id           = azurerm_subnet.privatesubnet.id
+
+  private_service_connection {
+    name                           = "privateendpoint-2"
+    private_connection_resource_id = azurerm_cognitive_account.landingzone2.id
+    is_manual_connection           = false
+    subresource_names              = ["account"]
+  }
+}
+
+#resource "azurerm_search_service" "search" {
+#  name                = "cognitivesearch-mentorship-${local.mentorship_env}"
+#  resource_group_name = local.resource_group
+#  location            = local.resource_region
+#  sku                 = "basic"
+#  public_network_access_enabled = true
+#  replica_count       = 1
+#  partition_count     = 1
+#  #allowed_ips = local.allowed_ip_ranges
+#}
+
+#resource "azurerm_private_endpoint" "mentorshipcognitive-pe-1" {
+#  name                = "mentorshipcognitive-pe-1"
+#  location            = local.resource_region
+#  resource_group_name = local.resource_group
+#  subnet_id           = azurerm_subnet.privatesubnet.id
+
+#  private_service_connection {
+#    name                           = "mentorshipcognitive-pe-1"
+#    private_connection_resource_id = azurerm_search_service.search.id
+#    is_manual_connection           = false
+#    subresource_names              = ["searchService"]
+#  }
+#}
+
+#resource "azurerm_storage_account" "landingzone-mentorship-storage-acct" {
+#  name                     = "landingzonementorshipstorageacct"
+#  resource_group_name      = local.resource_group
+#  location                 = local.resource_region
+#  account_tier             = "Standard"
+#  account_replication_type = "LRS"
+#  blob_properties{
+#      cors_rule{
+#          allowed_headers = ["*"]
+#          allowed_methods = ["GET","HEAD","OPTIONS","POST","PUT"]
+#          allowed_origins = ["*"]
+#          exposed_headers = ["*"]
+#          max_age_in_seconds = 3600
+#          }
+#      }
+#  depends_on = [
+#      azurerm_resource_group.rg
+#    ]
+#}
+
+#resource "azurerm_storage_container" "landingzone-mentorship-tf-blob" {
+#  name                  = "landingzonementorshipblob"
+#  storage_account_name  = azurerm_storage_account.landingzone-mentorship-storage-acct.name
+#  container_access_type = "private"
+#  depends_on = [
+#        azurerm_storage_account.landingzone-mentorship-storage-acct
+#      ]
+#}
